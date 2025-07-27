@@ -1,0 +1,25 @@
+apiVersion: v2
+name: fluentbit-logging
+description: FluentBit deployment for EKS CloudWatch logging with namespace-based log groups
+type: application
+version: 1.0.0
+appVersion: "3.1.4"
+
+keywords:
+  - logging
+  - fluentbit
+  - cloudwatch
+  - eks
+  - observability
+
+maintainers:
+  - name: DevOps Team
+    email: devops@company.com
+
+sources:
+  - https://github.com/fluent/fluent-bit
+
+dependencies:
+  - name: fluent-bit
+    version: "0.47.10"
+    repository: https://fluent.github.io/helm-charts

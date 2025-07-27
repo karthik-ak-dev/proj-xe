@@ -1,0 +1,133 @@
+# FluentBit configuration for EKS CloudWatch logging
+# This creates namespace-based log groups: /aws/eks/{cluster-name}/{namespace}
+
+# Override the default configuration completely
+fullnameOverride: fluent-bit
+
+# ServiceAccount configuration for IRSA
+serviceAccount:
+  create: true
+  name: fluent-bit
+  annotations:
+    eks.amazonaws.com/role-arn: "FLUENT_BIT_ROLE_ARN"  # Will be replaced by deploy script
+
+# FluentBit configuration - override defaults
+config:
+  service: |
+    [SERVICE]
+        Daemon Off
+        Flush 1
+        Log_Level info
+        Parsers_File /fluent-bit/etc/parsers.conf
+        HTTP_Server On
+        HTTP_Listen 0.0.0.0
+        HTTP_Port 2020
+        Health_Check On
+
+  inputs: |
+    [INPUT]
+        Name tail
+        Path /var/log/containers/*.log
+        multiline.parser docker, cri
+        Tag kube.*
+        Mem_Buf_Limit 50MB
+        Skip_Long_Lines On
+        Refresh_Interval 10
+
+  filters: |
+    [FILTER]
+        Name kubernetes
+        Match kube.*
+        Kube_URL https://kubernetes.default.svc:443
+        Kube_CA_File /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        Kube_Token_File /var/run/secrets/kubernetes.io/serviceaccount/token
+        Kube_Tag_Prefix kube.var.log.containers.
+        Merge_Log On
+        Keep_Log Off
+        K8S-Logging.Parser On
+        K8S-Logging.Exclude On
+        Annotations Off
+        Labels On
+
+    [FILTER]
+        Name grep
+        Match kube.*
+        Exclude log ^\s*$
+
+  outputs: |
+    [OUTPUT]
+        Name cloudwatch_logs
+        Match kube.*
+        region ${AWS_REGION}
+        log_group_name /aws/eks/CLUSTER_NAME_PLACEHOLDER
+        log_stream_name ${kubernetes_namespace_name}-${kubernetes_pod_name}
+        auto_create_group true
+        log_retention_days 7
+        log_format json
+        auto_retry_requests true
+        workers 1
+
+  # Resource limits
+  resources:
+    limits:
+      memory: 200Mi
+    requests:
+      cpu: 100m
+      memory: 200Mi
+
+  # Tolerations to run on all nodes
+  tolerations:
+    - key: node-role.kubernetes.io/master
+      operator: Exists
+      effect: NoSchedule
+    - key: node-role.kubernetes.io/control-plane
+      operator: Exists
+      effect: NoSchedule
+    - operator: "Exists"
+      effect: "NoExecute"
+    - operator: "Exists"
+      effect: "NoSchedule"
+
+  # Node selector (optional)
+  nodeSelector: {}
+
+  # Affinity rules (optional)
+  affinity: {}
+
+  # Update strategy
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+
+  # Pod security context
+  podSecurityContext:
+    fsGroup: 2000
+
+  # Container security context
+  securityContext:
+    capabilities:
+      drop:
+      - ALL
+    readOnlyRootFilesystem: true
+    runAsNonRoot: true
+    runAsUser: 1000
+
+  # Liveness and readiness probes
+  livenessProbe:
+    httpGet:
+      path: /
+      port: http
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+  readinessProbe:
+    httpGet:
+      path: /
+      port: http
+    initialDelaySeconds: 10
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3

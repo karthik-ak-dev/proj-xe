@@ -1,0 +1,118 @@
+# Default values for microservices
+# This is a YAML-formatted file.
+
+# Service name - MUST be overridden
+name: ""
+
+# Environment (stage, staging, prod)
+environment: stage
+
+# Replicas for the Deployment
+replicaCount: 1
+
+# Docker image configuration
+image:
+  repository: ""
+  pullPolicy: IfNotPresent
+  tag: ""
+
+# Optional image pull secrets
+imagePullSecrets: []
+
+# ServiceAccount configuration for IRSA (IAM Roles for Service Accounts)
+serviceAccount:
+  # Create a ServiceAccount for this application
+  create: false
+  # Name of the ServiceAccount (defaults to release name if not specified)
+  name: ""
+  # Annotations for the ServiceAccount (use this for IRSA role ARN)
+  annotations: {}
+  # Example IRSA annotation:
+  # annotations:
+  #   eks.amazonaws.com/role-arn: "arn:aws:iam::123456789:role/my-app-role"
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 8080
+  annotations: {}
+
+# Ingress configuration for ALB
+ingress:
+  enabled: false
+  # Common ALB annotations shared across all microservices
+  annotations:
+    # Core ALB annotations (required for ALB functionality)
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/healthcheck-path: /
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    alb.ingress.kubernetes.io/group.name: default-group
+
+    # Service-specific annotations should be added in individual service values:
+    # alb.ingress.kubernetes.io/security-groups: sg-xxxxxxxxxxxxxxxxx
+    # alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:region:account:certificate/cert-id
+
+  hosts:
+    - host: chart-example.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+# Resource requests and limits
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+# Horizontal Pod Autoscaler
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+# Liveness and readiness probes
+livenessProbe:
+  enabled: true
+  path: /
+  initialDelaySeconds: 60
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+  successThreshold: 1
+
+readinessProbe:
+  enabled: true
+  path: /
+  initialDelaySeconds: 40
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+  successThreshold: 1
+
+# Fargate configuration
+fargate:
+  enabled: false
+  labels:
+    compute-type: fargate
+
+# Node selector, affinity, and tolerations
+nodeSelector: {}
+affinity: {}
+tolerations: []
+
+# Environment variables
+env: []
+# - name: ENV_VAR_1
+#   value: value1
+
+# Optional secret name for environment variables
+envFromSecret: ""
