@@ -13,7 +13,7 @@
 #   fluent-bit-role-arn - IAM role ARN from Terraform output(command: terraform state show module.eks[0].aws_iam_role.fluent_bit[0] | grep "arn" | head -1 | awk '{print $3}' | tr -d '"')
 #
 # Example:
-#   ./deploy.sh stage-beatly-eks-cluster us-east-2 arn:aws:iam::508153278741:role/stage-beatly-fluent-bit-role
+#   ./deploy.sh stage-test-xxx-eks-cluster us-east-2 arn:aws:iam::508153278741:role/stage-test-xxx-fluent-bit-role
 #
 # Get the role ARN from Terraform:
 #   cd terraform/environments/stage && terraform output fluent_bit_role_arn

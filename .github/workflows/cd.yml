@@ -1,0 +1,237 @@
+name: Update and Deploy Service
+
+# =====================================================================
+# REQUIRED SECRETS:
+# =====================================================================
+# AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY
+# These credentials must belong to an IAM user that:
+# 1. Has permissions for EKS operations
+# 2. Is mapped in the EKS cluster's aws-auth ConfigMap to a Kubernetes RBAC role
+#
+# To add your CI/CD IAM user to EKS:
+# 1. Get your IAM user ARN:
+#    aws sts get-caller-identity --query Arn --output text
+#
+# 2. Edit the aws-auth ConfigMap in your EKS cluster:
+#    kubectl edit configmap aws-auth -n kube-system
+#
+# 3. Add the entries to the aws-auth ConfigMap. Here's a complete working example:
+#
+#    ```yaml
+#    mapRoles: |
+#      - groups:
+#        - system:bootstrappers
+#        - system:nodes
+#        rolearn: arn:aws:iam::035475678676:role/stage-test-xxx-eks-node-group-role
+#        username: system:node:{{EC2PrivateDNSName}}
+#      - rolearn: arn:aws:iam::508153278741:role/AWSReservedSSO_Admin_ce7552559aae59de
+#        username: admin-console-access
+#        groups:
+#        - system:masters
+#    mapUsers: |
+#      - userarn: arn:aws:iam::508153278741:user/stage-test-xxx-cd-user
+#        username: ci-user
+#        groups:
+#        - system:masters
+#    ```
+#
+# IMPORTANT FOR ROLES (especially for AWS SSO):
+# The AWS IAM Authenticator doesn't permit a path in the role ARN used in the ConfigMap.
+# You MUST remove the path from the role ARN. For example:
+#
+# INCORRECT (with path):
+#    - rolearn: arn:aws:iam::035475678676:role/aws-reserved/sso.amazonaws.com/us-east-2/AWSReservedSSO_AdministratorAccess_8610a110c7dfff47
+#
+# CORRECT (path removed):
+#    - rolearn: arn:aws:iam::035475678676:role/AWSReservedSSO_AdministratorAccess_8610a110c7dfff47
+#
+# See AWS docs: https://docs.aws.amazon.com/eks/latest/userguide/security-iam-troubleshoot.html
+#
+# Available built-in Kubernetes groups:
+# - system:masters - Full admin access to all resources
+# - system:basic-user - Basic read-only access
+# - system:nodes - For worker nodes
+# - system:bootstrappers - For node bootstrapping
+#
+# Alternatively, you can use eksctl:
+#    eksctl create iamidentitymapping \
+#      --cluster your-cluster-name \
+#      --region your-region \
+#      --arn arn:aws:iam::035475678676:user/your-username \
+#      --username your-username \
+#      --group system:masters
+# =====================================================================
+
+on:
+  workflow_dispatch:
+    inputs:
+      service:
+        description: "Service name to update and deploy"
+        required: true
+        type: string
+      environment:
+        description: "Environment (stage, prod)"
+        required: true
+        type: choice
+        options: [stage, prod]
+        default: "stage"
+      image_tag:
+        description: "New Docker image tag"
+        required: true
+        type: string
+      region:
+        description: "AWS region"
+        required: true
+        type: string
+        default: "us-east-2"
+      project_name:
+        description: "Project name (used for cluster name)"
+        required: true
+        type: string
+        default: "client-name"
+      service_secrets:
+        description: "Base64 encoded service secrets"
+        required: true
+        type: string
+
+# Add permissions for the GITHUB_TOKEN
+permissions:
+  contents: write
+
+# Define common environment variables at the job level
+env:
+  SERVICE: ${{ github.event.inputs.service }}
+  ENVIRONMENT: ${{ github.event.inputs.environment }}
+  REGION: ${{ github.event.inputs.region }}
+  PROJECT_NAME: ${{ github.event.inputs.project_name }}
+  IMAGE_TAG: ${{ github.event.inputs.image_tag }}
+
+jobs:
+  update-and-deploy:
+    name: Update Helm Values and Deploy
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          persist-credentials: true
+          token: ${{ github.token }}
+
+      # Set additional environment variables
+      - name: Set up environment variables
+        run: |
+          # Set namespace - this will be used for everything
+          NAMESPACE="${{ env.SERVICE }}-${{ env.ENVIRONMENT }}"
+          echo "NAMESPACE=$NAMESPACE" >> $GITHUB_ENV
+
+          # EKS cluster name
+          CLUSTER_NAME="${{ env.PROJECT_NAME }}-eks-cluster"
+          echo "CLUSTER_NAME=$CLUSTER_NAME" >> $GITHUB_ENV
+
+      # Install yq for YAML processing
+      - name: Install yq
+        run: |
+          wget https://github.com/mikefarah/yq/releases/download/v4.30.8/yq_linux_amd64 \
+            -O /usr/local/bin/yq
+          chmod +x /usr/local/bin/yq
+
+      # Update Helm values file with new image tag
+      - name: Update Helm values
+        run: |
+          # Update the image tag in the values file
+          cd helm/values/${{ env.ENVIRONMENT }}
+
+          # Ensure file exists
+          if [ ! -f "${{ env.SERVICE }}.yaml" ]; then
+            echo "Error: Values file for service ${{ env.SERVICE }} does not exist."
+            exit 1
+          fi
+
+          # Update the image.tag field while preserving the file format
+          yq e ".image.tag = \"${{ env.IMAGE_TAG }}\"" -i ${{ env.SERVICE }}.yaml
+
+          # Commit and push the updated values file
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add ${{ env.SERVICE }}.yaml
+          git commit -m "ci: update ${{ env.SERVICE }} image to ${{ env.IMAGE_TAG }}" \
+            || echo "No changes to commit"
+          git push
+
+      # Install Helm
+      - name: Set up Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: v3.10.0
+
+      # Configure AWS credentials
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.REGION }}
+
+      # Verify AWS authentication
+      - name: Verify AWS auth
+        run: |
+          aws sts get-caller-identity
+          aws eks list-clusters
+
+      # Configure kubectl
+      - name: Configure kubectl
+        run: |
+          echo "Configuring kubectl for cluster ${{ env.CLUSTER_NAME }}"
+          aws eks update-kubeconfig \
+            --region ${{ env.REGION }} \
+            --name ${{ env.CLUSTER_NAME }} \
+            --verbose
+
+          # Verify kubectl configuration
+          kubectl config view
+          kubectl cluster-info
+
+      # Create or ensure namespace exists
+      - name: Create namespace
+        run: |
+          echo "Creating or ensuring namespace ${{ env.NAMESPACE }} exists"
+          kubectl create namespace ${{ env.NAMESPACE }} \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      # Deploy service with Helm
+      - name: Deploy with Helm
+        run: |
+          echo "Deploying ${{ env.SERVICE }} to ${{ env.ENVIRONMENT }}"
+
+          # Create Kubernetes secret from key-value pairs
+          echo "${{ github.event.inputs.service_secrets }}" | base64 -d | \
+            jq -r 'to_entries[] | "\(.key)=\(.value | tostring)"' > /tmp/env_vars.txt
+
+          # Create the secret using kubectl with --from-env-file
+          kubectl create secret generic ${{ env.NAMESPACE }}-env \
+            -n ${{ env.NAMESPACE }} \
+            --from-env-file=/tmp/env_vars.txt \
+            --dry-run=client -o yaml | \
+            kubectl apply -f -
+
+          # Deploy/Upgrade with Helm
+          helm upgrade --install ${{ env.NAMESPACE }} \
+            ./helm/charts/microservice \
+            -f ./helm/values/${{ env.ENVIRONMENT }}/${{ env.SERVICE }}.yaml \
+            --set-string envFromSecret=${{ env.NAMESPACE }}-env \
+            -n ${{ env.NAMESPACE }}
+
+      # Verify deployment
+      - name: Verify deployment
+        run: |
+          # Wait for deployment
+          kubectl rollout status deployment/${{ env.NAMESPACE }} \
+            -n ${{ env.NAMESPACE }} \
+            --timeout=180s || true
+
+          # Get deployment status
+          kubectl get pods,svc,ingress \
+            -l app.kubernetes.io/name=${{ env.SERVICE }} \
+            -n ${{ env.NAMESPACE }}
