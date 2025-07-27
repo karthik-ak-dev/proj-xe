@@ -23,7 +23,7 @@
 #   ./destroy-infrastructure.sh [ENVIRONMENT] [REGION] [CLIENT_NAME]
 #
 # EXAMPLE:
-#   ./destroy-infrastructure.sh stage us-east-1 stage-test-xxx
+#   ./destroy-infrastructure.sh stage us-east-2 stage-test-xxx
 #
 # TROUBLESHOOTING:
 # If destroy fails:
@@ -34,7 +34,7 @@
 # ==============================================================================
 
 # chmod +x destroy-infrastructure.sh
-# ./destroy-infrastructure.sh stage us-east-1 stage-test-xxx
+# ./destroy-infrastructure.sh stage us-east-2 stage-test-xxx
 
 set -e
 
@@ -46,14 +46,14 @@ if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
     echo "  ./destroy-infrastructure.sh [ENVIRONMENT] [REGION] [CLIENT_NAME]"
     echo ""
     echo "EXAMPLE:"
-    echo "  ./destroy-infrastructure.sh stage us-east-1 test-xxx"
+    echo "  ./destroy-infrastructure.sh stage us-east-2 test-xxx"
     echo ""
     exit 0
 fi
 
 # Configuration
 ENVIRONMENT="${1:-stage}"
-REGION="${2:-us-east-1}"
+REGION="${2:-us-east-2}"
 CLIENT_NAME="${3:-stage-client-name}"
 CLUSTER_NAME="${CLIENT_NAME}-eks-cluster"
 

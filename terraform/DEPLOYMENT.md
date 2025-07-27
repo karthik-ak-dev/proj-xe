@@ -40,13 +40,13 @@ Ensure you have the following tools installed on your local machine:
    aws configure
    ```
 
-   Enter your AWS Access Key ID, Secret Access Key, default region (e.g., us-east-1), and output format (json).
+   Enter your AWS Access Key ID, Secret Access Key, default region (e.g., us-east-2), and output format (json).
 
 2. **Create S3 backend for Terraform state** (one-time setup):
 
    ```bash
    # Replace PROJECT_NAME with your specific client identifier
-   aws s3 mb s3://${PROJECT_NAME}-terraform-state --region us-east-1
+   aws s3 mb s3://${PROJECT_NAME}-terraform-state --region us-east-2
    ```
 
 3. **Create DynamoDB table for state locking** (one-time setup):
@@ -58,7 +58,7 @@ Ensure you have the following tools installed on your local machine:
        --attribute-definitions AttributeName=LockID,AttributeType=S \
        --key-schema AttributeName=LockID,KeyType=HASH \
        --billing-mode PAY_PER_REQUEST \
-       --region us-east-1
+       --region us-east-2
    ```
 
 ## Infrastructure Deployment
@@ -81,7 +81,7 @@ Ensure you have the following tools installed on your local machine:
      backend "s3" {
        bucket         = "${PROJECT_NAME}-terraform-state"
        key            = "dev/terraform.tfstate"
-       region         = "us-east-1"
+       region         = "us-east-2"
        encrypt        = true
        dynamodb_table = "terraform-state-locks-ddb"
      }
@@ -105,7 +105,7 @@ cd terraform/environments/stage
    ```hcl
    # Client-specific configuration
    project_name = "PROJECT_NAME"  # Replace with your client name
-   region       = "us-east-1"
+   region       = "us-east-2"
    vpc_cidr     = "10.0.0.0/16"
 
    # Feature flags
@@ -185,7 +185,7 @@ cd terraform/environments/stage
    ```hcl
    # Client-specific configuration
    project_name = "PROJECT_NAME"  # Replace with your client name
-   region       = "us-east-1"
+   region       = "us-east-2"
    vpc_cidr     = "10.0.0.0/16"
 
    # Feature flags
@@ -398,7 +398,7 @@ This project uses a multi-repository approach for CI/CD:
 
    # Container configuration
    image:
-     repository: {AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/client-name-services
+     repository: {AWS_ACCOUNT_ID}.dkr.ecr.us-east-2.amazonaws.com/client-name-services
      tag: service1-latest  # Using service-name prefix in tag
      pullPolicy: Always
 
@@ -525,7 +525,7 @@ By default, only the IAM entity that created the EKS cluster has access to the K
    ```yaml
    # INCORRECT (with path)
    mapRoles: |
-     - rolearn: arn:aws:iam::035475678676:role/aws-reserved/sso.amazonaws.com/us-east-1/AWSReservedSSO_AdministratorAccess_8610a110c7dfff47
+     - rolearn: arn:aws:iam::035475678676:role/aws-reserved/sso.amazonaws.com/us-east-2/AWSReservedSSO_AdministratorAccess_8610a110c7dfff47
        username: console-user
        groups:
        - system:masters
@@ -559,7 +559,7 @@ By default, only the IAM entity that created the EKS cluster has access to the K
    # Add an IAM user with admin access
    eksctl create iamidentitymapping \
      --cluster stage-client-name-eks-cluster \
-     --region us-east-1 \
+     --region us-east-2 \
      --arn arn:aws:iam::035475678676:user/stage-client-name-cd-user \
      --username ci-cd-user \
      --group system:masters
@@ -567,7 +567,7 @@ By default, only the IAM entity that created the EKS cluster has access to the K
    # Add an AWS SSO role with admin access (remove path from ARN)
    eksctl create iamidentitymapping \
      --cluster stage-client-name-eks-cluster \
-     --region us-east-1 \
+     --region us-east-2 \
      --arn arn:aws:iam::035475678676:role/AWSReservedSSO_AdministratorAccess_8610a110c7dfff47 \
      --username console-user \
      --group system:masters

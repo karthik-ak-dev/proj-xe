@@ -9,11 +9,11 @@
 #
 # Parameters:
 #   cluster-name        - EKS cluster name (command: terraform state show module.eks[0].aws_eks_cluster.main | grep -E "^\s+name\s+=" | awk '{print $3}' | tr -d '"')
-#   region             - AWS region (e.g., us-east-1)
+#   region             - AWS region (e.g., us-east-2)
 #   fluent-bit-role-arn - IAM role ARN from Terraform output(command: terraform state show module.eks[0].aws_iam_role.fluent_bit[0] | grep "arn" | head -1 | awk '{print $3}' | tr -d '"')
 #
 # Example:
-#   ./deploy.sh stage-beatly-eks-cluster us-east-1 arn:aws:iam::508153278741:role/stage-beatly-fluent-bit-role
+#   ./deploy.sh stage-beatly-eks-cluster us-east-2 arn:aws:iam::508153278741:role/stage-beatly-fluent-bit-role
 #
 # Get the role ARN from Terraform:
 #   cd terraform/environments/stage && terraform output fluent_bit_role_arn

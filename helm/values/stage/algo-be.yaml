@@ -11,7 +11,7 @@ serviceAccount:
     # Replace with actual role ARN from Terraform output: terraform output app_full_access_role_arn
     eks.amazonaws.com/role-arn: "arn:aws:iam::508153278741:role/stage-test-xxx-app-full-access-role"
 image:
-  repository: 508153278741.dkr.ecr.us-east-1.amazonaws.com/stage-test-xxx-services
+  repository: 508153278741.dkr.ecr.us-east-2.amazonaws.com/stage-test-xxx-services
   tag: "test-xxx-be-6f616aa107fb2ef67f9d5246c8e13653a06d5a50"
 service:
   port: 5000
@@ -19,7 +19,7 @@ ingress:
   enabled: true
   annotations:
     alb.ingress.kubernetes.io/group.name: stage-test-xxx
-    alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:us-east-1:508153278741:certificate/e726c219-25a1-4dad-98ab-13c628ff7d01"
+    alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:us-east-2:508153278741:certificate/e726c219-25a1-4dad-98ab-13c628ff7d01"
     alb.ingress.kubernetes.io/security-groups: "sg-0c20ec8aa41911365"
   hosts:
     - host: stage-xxx-srv.test-xxx.ai

@@ -67,7 +67,7 @@ terraform {
   backend "s3" {
     bucket         = "client-terraform-state"
     key            = "prod/terraform.tfstate"  # <-- Change this
-    region         = "us-east-1"
+    region         = "us-east-2"
     encrypt        = true
     dynamodb_table = "client-terraform-locks"
   }
@@ -89,13 +89,13 @@ Before initializing Terraform, you need to create an S3 bucket and a DynamoDB ta
 
 ```bash
 # Replace CLIENT_NAME with your client identifier
-aws s3 mb s3://${CLIENT_NAME}-terraform-state --region us-east-1
+aws s3 mb s3://${CLIENT_NAME}-terraform-state --region us-east-2
 aws dynamodb create-table \
     --table-name ${CLIENT_NAME}-terraform-locks \
     --attribute-definitions AttributeName=LockID,AttributeType=S \
     --key-schema AttributeName=LockID,KeyType=HASH \
     --billing-mode PAY_PER_REQUEST \
-    --region us-east-1
+    --region us-east-2
 ```
 
 ## Client-Specific Configuration
@@ -105,7 +105,7 @@ Update the `terraform.tfvars` file with your client's specific configuration:
 ```hcl
 # Client-specific configuration
 project_name = "client-name"  # This will prefix all resources
-region       = "us-east-1"
+region       = "us-east-2"
 vpc_cidr     = "10.0.0.0/16"
 
 # Feature flags
@@ -170,7 +170,7 @@ terraform apply tfplan
 7. Configure kubectl to connect to your EKS cluster:
 
 ```bash
-aws eks update-kubeconfig --region us-east-1 --name ${CLIENT_NAME}-eks-cluster
+aws eks update-kubeconfig --region us-east-2 --name ${CLIENT_NAME}-eks-cluster
 ```
 
 ## ECR Repository Usage
@@ -181,12 +181,12 @@ The infrastructure creates a single "services" ECR repository by default. When b
 
    ```bash
    # Format: {project_name}-services:{service-name}-{tag}
-   docker tag your-image:latest 123456789012.dkr.ecr.us-east-1.amazonaws.com/client-name-services:api-service-v1.0.0
+   docker tag your-image:latest 123456789012.dkr.ecr.us-east-2.amazonaws.com/client-name-services:api-service-v1.0.0
    ```
 
 2. Push to ECR:
    ```bash
-   docker push 123456789012.dkr.ecr.us-east-1.amazonaws.com/client-name-services:api-service-v1.0.0
+   docker push 123456789012.dkr.ecr.us-east-2.amazonaws.com/client-name-services:api-service-v1.0.0
    ```
 
 This approach allows you to use a single repository for multiple services by using descriptive image tags.
